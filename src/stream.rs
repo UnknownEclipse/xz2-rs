@@ -362,6 +362,19 @@ impl Stream {
         }
     }
 
+    /// Initialize a raw decoder using the provided filters. This is a lower level
+    /// operation.
+    pub fn new_raw_decoder(filters: &Filters) -> Result<Stream, Error> {
+        unsafe {
+            let mut init = Stream { raw: mem::zeroed() };
+            cvt(lzma_sys::lzma_raw_decoder(
+                &mut init.raw,
+                filters.inner.as_ptr(),
+            ))?;
+            Ok(init)
+        }
+    }
+
     /// Processes some data from input into an output buffer.
     ///
     /// This will perform the appropriate encoding or decoding operation
