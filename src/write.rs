@@ -339,7 +339,7 @@ mod tests {
     fn write_empty() {
         let d = XzDecoder::new(Vec::new());
         let mut c = XzEncoder::new(d, 6);
-        c.write(b"").unwrap();
+        c.write_all(b"").unwrap();
         let data = c.finish().unwrap().finish().unwrap();
         assert_eq!(&data[..], b"");
     }
