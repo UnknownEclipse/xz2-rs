@@ -248,12 +248,13 @@ pub enum MatchFinder {
 }
 
 /// A filter id.
+#[allow(clippy::enum_clike_unportable_variant)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FilterId {
     /// The LZMA1 format
-    Lzma1,
+    Lzma1 = lzma_sys::LZMA_FILTER_LZMA1 as isize,
     /// The LZMA2 format
-    Lzma2,
+    Lzma2 = lzma_sys::LZMA_FILTER_LZMA2 as isize,
 }
 
 /// A flag passed when initializing a decoder, causes `process` to return
@@ -636,16 +637,15 @@ impl Filters {
             ))?;
 
             let options = *(filter.options as *mut lzma_sys::lzma_options_lzma);
+            let options = LzmaOptions { raw: options };
             libc::free(filter.options);
 
-            let mut lzma_opts = LinkedList::new();
-            lzma_opts.push_back(options);
-            filter.options =
-                lzma_opts.front_mut().unwrap() as *mut lzma_sys::lzma_options_lzma as *mut c_void;
-            Ok(Filters {
-                inner: vec![filter],
-                lzma_opts,
-            })
+            let mut filters = Filters::new();
+            match filter_id {
+                FilterId::Lzma1 => filters.lzma1(&options),
+                FilterId::Lzma2 => filters.lzma2(&options),
+            };
+            Ok(filters)
         }
     }
 
