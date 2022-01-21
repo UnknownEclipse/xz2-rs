@@ -9,8 +9,10 @@ use std::error;
 use std::fmt;
 use std::io;
 use std::mem;
+use std::ptr;
 use std::slice;
 
+use libc::c_void;
 use lzma_sys;
 
 /// Representation of an in-memory LZMA encoding or decoding stream.
@@ -243,6 +245,15 @@ pub enum MatchFinder {
     BinaryTree3 = lzma_sys::LZMA_MF_BT3 as isize,
     /// Binary Tree with 2-, 3-, and 4-byte hashing
     BinaryTree4 = lzma_sys::LZMA_MF_BT4 as isize,
+}
+
+/// A filter id.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum FilterId {
+    /// The LZMA1 format
+    Lzma1,
+    /// The LZMA2 format
+    Lzma2,
 }
 
 /// A flag passed when initializing a decoder, causes `process` to return
@@ -609,6 +620,32 @@ impl Filters {
                 options: 0 as *mut _,
             }],
             lzma_opts: LinkedList::new(),
+        }
+    }
+
+    /// Decode a set of properties using the given filter id.
+    pub fn decode(filter_id: FilterId, properties: &[u8]) -> Result<Filters, Error> {
+        unsafe {
+            let mut filter: lzma_sys::lzma_filter = mem::zeroed();
+            filter.id = filter_id as lzma_sys::lzma_vli;
+            cvt(lzma_sys::lzma_properties_decode(
+                &mut filter,
+                ptr::null(),
+                properties.as_ptr(),
+                properties.len(),
+            ))?;
+
+            let options = *(filter.options as *mut lzma_sys::lzma_options_lzma);
+            libc::free(filter.options);
+
+            let mut lzma_opts = LinkedList::new();
+            lzma_opts.push_back(options);
+            filter.options =
+                lzma_opts.front_mut().unwrap() as *mut lzma_sys::lzma_options_lzma as *mut c_void;
+            Ok(Filters {
+                inner: vec![filter],
+                lzma_opts,
+            })
         }
     }
 
